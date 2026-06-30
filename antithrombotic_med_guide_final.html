@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>환자별 항혈전제·항응고제 복약 안내문 생성 도구</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --ink: #172033;
+      --muted: #647084;
+      --line: #dbe3ef;
+      --primary: #1f5f8b;
+      --primary-dark: #17486a;
+      --soft: #eaf3fb;
+      --warn: #fff4df;
+      --warn-line: #f1c777;
+      --danger: #fff0f0;
+      --danger-line: #e39a9a;
+      --ok: #edf8f1;
+      --ok-line: #94c7a5;
+      --shadow: 0 12px 30px rgba(31, 62, 93, .08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #edf4fb 0%, var(--bg) 260px);
+      line-height: 1.55;
+    }
+
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    header {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--soft);
+      color: var(--primary-dark);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 4vw, 38px);
+      line-height: 1.2;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel.sticky { position: sticky; top: 16px; }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    input[type="text"], input[type="date"], textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+
+    textarea { min-height: 86px; resize: vertical; }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(31, 95, 139, .12);
+    }
+
+    .notice {
+      border: 1px solid var(--danger-line);
+      background: var(--danger);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font-size: 14px;
+      margin: 14px 0 18px;
+    }
+
+    .notice strong { color: #9e3030; }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .drug-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .drug-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfdff;
+      overflow: hidden;
+    }
+
+    .drug-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      cursor: pointer;
+    }
+
+    .drug-head input { margin-top: 5px; transform: scale(1.05); }
+
+    .drug-name { font-weight: 800; }
+    .drug-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+    .drug-body {
+      display: none;
+      border-top: 1px solid var(--line);
+      padding: 12px;
+      background: #fff;
+    }
+
+    .drug-card.active {
+      border-color: rgba(31, 95, 139, .55);
+      background: var(--soft);
+    }
+
+    .drug-card.active .drug-body { display: block; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .08s ease, background .12s ease;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 18px rgba(31, 95, 139, .22); }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: #eef3f8; color: var(--primary-dark); }
+    .btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .btn-danger { background: #ffe8e8; color: #9e3030; }
+
+    .status {
+      min-height: 24px;
+      margin-top: 10px;
+      color: var(--primary-dark);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .status.error { color: #a53131; }
+
+    .output-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .output-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+    }
+
+    .sheet {
+      background: #fff;
+      padding: 28px;
+      min-height: 720px;
+    }
+
+    .empty-state {
+      border: 2px dashed var(--line);
+      border-radius: 18px;
+      padding: 44px 24px;
+      text-align: center;
+      color: var(--muted);
+      background: #fcfdff;
+    }
+
+    .print-sheet h2.title {
+      font-size: 26px;
+      text-align: center;
+      margin: 0 0 6px;
+      letter-spacing: -0.05em;
+    }
+
+    .print-sheet .date-line {
+      text-align: right;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .info-box {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fbfdff;
+      margin: 10px 0;
+    }
+
+    .warning-box {
+      border: 1px solid var(--warn-line);
+      background: var(--warn);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+
+    .review-box {
+      border: 1px solid var(--ok-line);
+      background: var(--ok);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #d5deea;
+      padding: 9px;
+      vertical-align: top;
+    }
+
+    th { background: #eef5fb; text-align: left; }
+
+    .med-img {
+      width: 64px;
+      height: 48px;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .placeholder-img {
+      width: 64px;
+      height: 48px;
+      border: 1px dashed #b8c4d2;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: #7b8797;
+      font-size: 11px;
+      text-align: center;
+      background: #f7f9fc;
+      margin-bottom: 4px;
+    }
+
+    .preview-wrap {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f9fbfe;
+    }
+
+    .preview-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .preview-img {
+      width: 140px;
+      height: 100px;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      display: block;
+    }
+
+    ul.compact, ol.compact { margin: 8px 0 8px 20px; padding: 0; }
+    .small { font-size: 13px; color: var(--muted); }
+    .required { color: #b23434; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef3f8;
+      color: var(--primary-dark);
+      font-size: 12px;
+      font-weight: 800;
+      margin-left: 5px;
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .panel.sticky { position: static; }
+      .two-col { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      @page { size: A4; margin: 12mm; }
+      body { background: #fff; }
+      .wrap { width: 100%; padding: 0; }
+      header, .panel, .output-toolbar, .no-print { display: none !important; }
+      .grid { display: block; }
+      .output-card { border: 0; box-shadow: none; border-radius: 0; }
+      .sheet { padding: 0; min-height: auto; }
+      .print-sheet { font-size: 11.3pt; line-height: 1.36; }
+      .print-sheet h2.title { font-size: 19pt; margin-bottom: 3mm; }
+      .print-sheet h3 { font-size: 12.5pt; margin: 4mm 0 2mm; }
+      .info-box, .warning-box, .review-box { padding: 7px 9px; margin: 6px 0; border-radius: 8px; }
+      table { font-size: 9.7pt; margin: 5px 0 7px; }
+      th, td { padding: 5px 6px; }
+      .med-img, .placeholder-img { width: 48px; height: 34px; }
+      .small { font-size: 9.5pt; }
+      .page-break-avoid { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">병원 업무용 · 단일 HTML 웹앱</div>
+      <h1>환자별 항혈전제·항응고제 복약 안내문 생성 도구</h1>
+      <p class="subtitle">신경과 병동 퇴원 전 복약상담 시, 환자가 실제 복용하는 약만 선택하여 A4 1장 복약 안내문 초안을 만듭니다.</p>
+    </header>
+
+    <div class="notice no-print">
+      <strong>개인정보 입력 금지:</strong> 실제 환자명, 등록번호, 연락처, 병실번호, 진단명, 검사결과, 간호기록 원문 등 개인정보나 민감정보를 입력하지 마십시오. 이 도구는 초안 작성 보조용이며, 사용 전 약사가 반드시 확인해야 합니다.
+    </div>
+
+    <div class="grid">
+      <aside class="panel sticky no-print">
+        <div class="section-title">
+          <h2>입력하기</h2>
+          <span class="pill">필수 항목 확인</span>
+        </div>
+
+        <label for="counselDate">상담일 <span class="required">*</span></label>
+        <input type="date" id="counselDate" />
+
+        <label for="pharmacist">담당 약사</label>
+        <input type="text" id="pharmacist" value="방보령" placeholder="예: 방보령" />
+
+        <label for="target">대상 설명</label>
+        <input type="text" id="target" value="신경과 병동 뇌경색환자 퇴원 전 복약상담 대상자" placeholder="환자 식별정보 없이 작성" />
+        <div class="hint">예: 신경과 병동 뇌경색환자 퇴원 전 복약상담 대상자</div>
+
+        <label>복용 중인 항혈전제·항응고제 선택 <span class="required">*</span></label>
+        <div class="drug-list" id="drugList"></div>
+
+        <label for="globalNotes">공통으로 강조할 내용</label>
+        <textarea id="globalNotes" placeholder="예: 임의 중단 금지, 출혈 증상 발생 시 병원 문의, 다른 병원 방문 시 복용 중인 약 알리기">임의로 약을 중단하지 말고, 출혈이 의심되는 증상이 있거나 시술·수술·치과치료 예정이 있으면 의료진에게 복용 중인 약을 알려 주세요.</textarea>
+
+        <label for="customBleeding">출혈 관련 병원 문의 증상</label>
+        <textarea id="customBleeding">멍이 쉽게 들거나 커지는 경우, 코피나 잇몸 출혈이 멈추지 않는 경우, 소변이 붉게 보이는 경우, 검은색 변이나 피가 섞인 변, 피를 토하거나 기침할 때 피가 나오는 경우, 심한 두통·어지러움·외상 후 증상이 있는 경우</textarea>
+
+        <div class="buttons">
+          <button type="button" class="btn-primary" id="generateBtn">결과 생성</button>
+          <button type="button" class="btn-secondary" id="copyBtn">결과 복사</button>
+          <button type="button" class="btn-ghost" id="printBtn">인쇄</button>
+          <button type="button" class="btn-danger" id="resetBtn">초기화</button>
+        </div>
+        <div class="status" id="status"></div>
+      </aside>
+
+      <main class="output-card">
+        <div class="output-toolbar no-print">
+          <div>
+            <strong>결과 미리보기</strong>
+            <div class="small">생성 후 출력 또는 복사할 수 있습니다.</div>
+          </div>
+          <div class="small">A4 1장 출력 기준</div>
+        </div>
+        <div class="sheet" id="output">
+          <div class="empty-state">
+            <h2>아직 생성된 안내문이 없습니다.</h2>
+            <p>왼쪽에서 실제 복용 약을 선택하고 복용 방법을 입력한 뒤 <strong>결과 생성</strong>을 누르십시오.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const drugs = [
+      {
+        id: 'aspirin',
+        name: '아스피린',
+        brand: '아스피린프로텍트정',
+        category: '항혈소판제',
+        color: '#f4b183',
+        shape: 'round',
+        simple: '혈소판이 서로 엉겨 혈전이 생기는 것을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 1일 1회 복용',
+        defaultNote: '위장 불편감이나 출혈 증상이 있으면 의료진에게 알려 주세요.'
+      },
+      {
+        id: 'clopidogrel',
+        name: '클로피도그렐',
+        brand: '플라빅스정',
+        category: '항혈소판제',
+        color: '#ffe599',
+        shape: 'round',
+        simple: '혈소판 작용을 억제해 혈전 생성을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 1일 1회 복용',
+        defaultNote: '멍, 코피, 잇몸 출혈 등 출혈 증상을 관찰해 주세요.'
+      },
+      {
+        id: 'ticagrelor',
+        name: '티카그릴러',
+        brand: '브릴린타정',
+        category: '항혈소판제',
+        color: '#f8cbad',
+        shape: 'round',
+        simple: '혈소판 작용을 억제해 혈전 생성을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 복용',
+        defaultNote: '숨참, 출혈 증상 등 불편감이 있으면 의료진에게 알려 주세요.'
+      },
+      {
+        id: 'cilostazol',
+        name: '실로스타졸',
+        brand: '프레탈정',
+        category: '항혈소판제',
+        color: '#ffd966',
+        shape: 'round',
+        simple: '혈소판 응집을 줄이고 혈류 개선에 도움을 주는 약입니다.',
+        defaultDose: '의사 처방에 따라 복용',
+        defaultNote: '두근거림, 두통, 출혈 증상이 있으면 의료진에게 알려 주세요.'
+      },
+      {
+        id: 'warfarin',
+        name: '와파린',
+        brand: '대화와파린정',
+        category: '항응고제',
+        color: '#c9daf8',
+        shape: 'round',
+        simple: '혈액이 과도하게 굳는 것을 줄여 혈전 생성을 예방하는 약입니다.',
+        defaultDose: '의사 처방에 따라 정해진 용량 복용',
+        defaultNote: '정기 검사와 식이·다른 약 복용 여부 확인이 중요합니다.'
+      },
+      {
+        id: 'edoxaban',
+        name: '에독사반',
+        brand: '릭시아나정',
+        category: '항응고제',
+        color: '#b6d7a8',
+        shape: 'oval',
+        simple: '혈액 응고 과정 일부를 억제해 혈전 생성을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 복용',
+        defaultNote: '출혈 증상과 복용법을 확인해 주세요.'
+      },
+      {
+        id: 'apixaban',
+        name: '아픽사반',
+        brand: '엘리퀴스정',
+        category: '항응고제',
+        color: '#a4c2f4',
+        shape: 'oval',
+        simple: '혈액 응고 과정 일부를 억제해 혈전 생성을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 복용',
+        defaultNote: '출혈 증상, 복용 누락, 다른 약 복용 여부를 확인해 주세요.'
+      },
+      {
+        id: 'rivaroxaban',
+        name: '리바록사반',
+        brand: '자렐토정',
+        category: '항응고제',
+        color: '#ea9999',
+        shape: 'round',
+        simple: '혈액 응고 과정 일부를 억제해 혈전 생성을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 복용',
+        defaultNote: '출혈 증상과 복용 누락 여부를 확인해 주세요.'
+      },
+      {
+        id: 'dabigatran',
+        name: '다비가트란',
+        brand: '프라닥사캡슐',
+        category: '항응고제',
+        color: '#f6b26b',
+        shape: 'capsule',
+        simple: '혈액 응고 과정 일부를 억제해 혈전 생성을 줄이는 약입니다.',
+        defaultDose: '의사 처방에 따라 복용',
+        defaultNote: '캡슐 복용법, 출혈 증상, 복용 누락 여부를 확인해 주세요.'
+      },
+      {
+        id: 'other',
+        name: '기타 약품 직접 입력',
+        brand: '',
+        category: '직접 입력',
+        color: '#d9d9d9',
+        shape: 'round',
+        simple: '처방내역에 맞춰 약사가 직접 설명을 입력합니다.',
+        defaultDose: '',
+        defaultNote: ''
+      }
+    ];
+
+    function svgDataUrl(drug, brandOverride = '') {
+      if (drug.id === 'other') return '';
+      const brand = brandOverride || drug.brand || drug.name;
+      const generic = drug.name || '';
+      const color = drug.color || '#d9e2f3';
+      const shape = drug.shape || 'round';
+      let pill = '';
+      if (shape === 'capsule') {
+        pill = `
+          <g transform="translate(0,2)">
+            <rect x="48" y="56" rx="17" ry="17" width="112" height="34" fill="#ffffff" stroke="#c9d2df" stroke-width="2"/>
+            <path d="M104 56 h56 a17 17 0 0 1 0 34 h-56 z" fill="${color}" stroke="#c9d2df" stroke-width="2"/>
+          </g>`;
+      } else if (shape === 'oval') {
+        pill = `
+          <ellipse cx="104" cy="73" rx="56" ry="19" fill="${color}" stroke="#c9d2df" stroke-width="2"/>
+          <line x1="78" y1="73" x2="130" y2="73" stroke="#ffffff" stroke-width="2" opacity="0.7"/>`;
+      } else {
+        pill = `
+          <circle cx="104" cy="73" r="24" fill="${color}" stroke="#c9d2df" stroke-width="2"/>
+          <circle cx="132" cy="73" r="24" fill="#ffffff" stroke="#c9d2df" stroke-width="2"/>
+          <line x1="108" y1="73" x2="128" y2="73" stroke="#c9d2df" stroke-width="2"/>`;
+      }
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140">
+          <rect x="1" y="1" width="218" height="138" rx="14" ry="14" fill="#ffffff" stroke="#dbe3ef"/>
+          <rect x="12" y="12" width="196" height="26" rx="8" ry="8" fill="#edf4fb"/>
+          <text x="110" y="30" text-anchor="middle" font-family="Malgun Gothic, Apple SD Gothic Neo, sans-serif" font-size="14" font-weight="700" fill="#1f5f8b">${brand}</text>
+          ${pill}
+          <text x="110" y="112" text-anchor="middle" font-family="Malgun Gothic, Apple SD Gothic Neo, sans-serif" font-size="12" fill="#4b5868">대표 사진 예시</text>
+          <text x="110" y="128" text-anchor="middle" font-family="Malgun Gothic, Apple SD Gothic Neo, sans-serif" font-size="11" fill="#6b7785">${generic}</text>
+        </svg>`;
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
+    const imageData = {};
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function todayISO() {
+      const d = new Date();
+      const offset = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - offset * 60000);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function renderDrugList() {
+      const list = $('drugList');
+      list.innerHTML = drugs.map((drug) => `
+        <div class="drug-card" id="card-${drug.id}">
+          <label class="drug-head" for="check-${drug.id}">
+            <input type="checkbox" id="check-${drug.id}" data-id="${drug.id}" />
+            <span>
+              <span class="drug-name">${drug.name}</span>
+              <span class="pill">${drug.category}</span>
+              <span class="drug-meta">${drug.simple}</span>
+            </span>
+          </label>
+          <div class="drug-body">
+            ${drug.id === 'other' ? `
+              <label for="customName-${drug.id}">약품명 <span class="required">*</span></label>
+              <input type="text" id="customName-${drug.id}" placeholder="예: 약품명을 입력하세요" />
+              <label for="customCategory-${drug.id}">약품 구분</label>
+              <input type="text" id="customCategory-${drug.id}" placeholder="예: 항혈소판제 / 항응고제" />
+              <label for="customSimple-${drug.id}">환자용 쉬운 설명</label>
+              <textarea id="customSimple-${drug.id}" placeholder="환자가 이해하기 쉬운 설명을 입력하세요"></textarea>
+            ` : ''}
+            <label for="dose-${drug.id}">복용 방법 <span class="required">*</span></label>
+            <input type="text" id="dose-${drug.id}" value="${escapeHtml(drug.defaultDose)}" placeholder="예: 아침 식후 1회" />
+            <label for="note-${drug.id}">약품별 주의사항 또는 강조 문구</label>
+            <textarea id="note-${drug.id}" placeholder="약품별로 추가할 안내를 적어 주세요">${escapeHtml(drug.defaultNote)}</textarea>
+            ${drug.id !== 'other' ? `
+              <div class="preview-wrap">
+                <div class="preview-label">대표 사진 예시</div>
+                <img class="preview-img" src="${svgDataUrl(drug)}" alt="${drug.brand} 대표 사진 예시" />
+                <div class="hint">기본으로 ${drug.brand} 대표 사진 예시가 표시됩니다. 필요하면 아래에서 다른 사진으로 바꿀 수 있습니다.</div>
+              </div>
+            ` : ''}
+            <label for="image-${drug.id}">약품 사진 첨부</label>
+            <input type="file" id="image-${drug.id}" accept="image/*" />
+            <div class="hint">사진은 현재 브라우저 화면에서만 사용됩니다. 실제 약품 사진과 약명이 맞는지 약사가 확인하십시오.</div>
+
+            <label for="imageUrl-${drug.id}">실제 약품 사진 URL</label>
+            <input type="text" id="imageUrl-${drug.id}" placeholder="허가받은 사진 URL이 있으면 붙여넣기" />
+            <div class="hint">병원에서 사용 가능한 사진 URL 또는 직접 촬영·허가받은 이미지만 사용하십시오. URL이 입력되면 기본 대표 사진 예시 대신 해당 사진을 사용합니다.</div>
+          </div>
+        </div>
+      `).join('');
+
+      drugs.forEach((drug) => {
+        const checkbox = $(`check-${drug.id}`);
+        const card = $(`card-${drug.id}`);
+        checkbox.addEventListener('change', () => {
+          card.classList.toggle('active', checkbox.checked);
+        });
+        $(`image-${drug.id}`).addEventListener('change', (event) => handleImage(event, drug.id));
+        $(`imageUrl-${drug.id}`).addEventListener('input', () => {
+          if ($(`imageUrl-${drug.id}`).value.trim()) {
+            setStatus('사진 URL을 입력했습니다. 결과 생성 버튼을 눌러 반영하십시오.');
+          }
+        });
+      });
+    }
+
+    function handleImage(event, id) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        delete imageData[id];
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        imageData[id] = reader.result;
+        setStatus('약품 사진을 불러왔습니다. 결과 생성 버튼을 눌러 반영하십시오.');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function selectedDrugs() {
+      return drugs.filter((drug) => $(`check-${drug.id}`).checked).map((drug) => {
+        const customName = drug.id === 'other' ? $(`customName-${drug.id}`).value.trim() : '';
+        const customCategory = drug.id === 'other' ? $(`customCategory-${drug.id}`).value.trim() : '';
+        const customSimple = drug.id === 'other' ? $(`customSimple-${drug.id}`).value.trim() : '';
+        return {
+          ...drug,
+          displayName: customName || drug.name,
+          displayCategory: customCategory || drug.category,
+          displaySimple: customSimple || drug.simple,
+          dose: $(`dose-${drug.id}`).value.trim(),
+          note: $(`note-${drug.id}`).value.trim(),
+          imageUrl: $(`imageUrl-${drug.id}`).value.trim(),
+          defaultImage: svgDataUrl(drug, drug.brand || customName || drug.name),
+          image: imageData[drug.id] || ''
+        };
+      });
+    }
+
+    function validate(items) {
+      if (!$('counselDate').value) return '상담일을 입력해 주세요.';
+      if (items.length === 0) return '환자가 실제 복용하는 약을 1개 이상 선택해 주세요.';
+      for (const item of items) {
+        if (!item.displayName || item.displayName === '기타 약품 직접 입력') return '기타 약품을 선택한 경우 약품명을 입력해 주세요.';
+        if (!item.dose) return `${item.displayName}의 복용 방법을 입력해 주세요.`;
+      }
+      return '';
+    }
+
+    function medImageHtml(item) {
+      const src = item.image || item.imageUrl || item.defaultImage;
+      if (src) {
+        return `<img class="med-img" src="${escapeHtml(src)}" alt="${escapeHtml(item.displayName)} 약품 사진" />`;
+      }
+      return `<div class="placeholder-img">사진<br>확인</div>`;
+    }
+
+    function linesFromTextarea(value) {
+      return String(value || '')
+        .split(/[\n,]+/)
+        .map((v) => v.trim())
+        .filter(Boolean);
+    }
+
+    function generate() {
+      const items = selectedDrugs();
+      const message = validate(items);
+      if (message) {
+        setStatus(message, true);
+        return;
+      }
+
+      const dateText = $('counselDate').value;
+      const pharmacist = $('pharmacist').value.trim() || '담당 약사';
+      const target = $('target').value.trim() || '퇴원 전 복약상담 대상자';
+      const globalNotes = $('globalNotes').value.trim();
+      const bleedingItems = linesFromTextarea($('customBleeding').value);
+
+      const medRows = items.map((item) => `
+        <tr>
+          <td style="width:82px">${medImageHtml(item)}<strong>${escapeHtml(item.displayName)}</strong>${item.brand ? `<div class="small">대표: ${escapeHtml(item.brand)}</div>` : ''}</td>
+          <td style="width:95px">${escapeHtml(item.displayCategory)}</td>
+          <td>${escapeHtml(item.dose)}</td>
+          <td>${escapeHtml(item.displaySimple)}${item.note ? `<br><span class="small">추가 안내: ${escapeHtml(item.note)}</span>` : ''}</td>
+        </tr>
+      `).join('');
+
+      const selectedNames = items.map((item) => item.displayName).join(', ');
+      const bleedingHtml = bleedingItems.length
+        ? bleedingItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+        : '<li>출혈이 의심되는 증상이 있으면 병원 또는 담당 의료진에게 문의합니다.</li>';
+
+      const output = `
+        <article class="print-sheet" id="printArea">
+          <h2 class="title">항혈전제·항응고제 복약 안내문</h2>
+          <div class="date-line">작성일: ${escapeHtml(dateText)} · 담당: ${escapeHtml(pharmacist)}</div>
+
+          <div class="info-box page-break-avoid">
+            <strong>대상:</strong> ${escapeHtml(target)}<br>
+            <strong>선택된 약:</strong> ${escapeHtml(selectedNames)}<br>
+            <span class="small">이 안내문은 선택된 약에 맞춘 초안입니다. 실제 처방내역, 약명, 사진, 복용법은 제공 전 반드시 약사가 확인해야 합니다.</span>
+          </div>
+
+          <h3>1. 복용 중인 약과 복용 방법</h3>
+          <table class="page-break-avoid">
+            <thead>
+              <tr>
+                <th>약품명·사진</th>
+                <th>구분</th>
+                <th>복용 방법</th>
+                <th>쉬운 설명 및 주의사항</th>
+              </tr>
+            </thead>
+            <tbody>${medRows}</tbody>
+          </table>
+
+          <h3>2. 꼭 기억해 주세요</h3>
+          <div class="warning-box page-break-avoid">
+            <ul class="compact">
+              <li>이 약은 혈전 생성을 줄이기 위해 복용합니다. 임의로 중단하지 말고, 중단이나 변경이 필요할 때는 의료진과 상의하십시오.</li>
+              <li>수술, 시술, 치과치료, 다른 병원 진료, 새로운 약·건강기능식품 복용 전에는 항혈전제·항응고제를 복용 중임을 알려 주십시오.</li>
+              ${globalNotes ? `<li>${escapeHtml(globalNotes)}</li>` : ''}
+            </ul>
+          </div>
+
+          <h3>3. 병원에 문의해야 하는 출혈 의심 증상</h3>
+          <div class="warning-box page-break-avoid">
+            <ul class="compact">${bleedingHtml}</ul>
+          </div>
+
+          <div class="notice" style="margin-top:14px">
+            <strong>검토 필수:</strong> 이 결과물은 초안이며, 사용 전 병원 내부 기준과 담당자 검토를 거쳐야 합니다.
+          </div>
+        </article>
+      `;
+
+      $('output').innerHTML = output;
+      setStatus('복약 안내문 초안을 생성했습니다. 업로드 사진 또는 사진 URL이 있으면 실제 사진으로 반영했습니다.');
+    }
+
+    async function copyResult() {
+      const output = $('output');
+      if (!output.innerText || output.querySelector('.empty-state')) {
+        setStatus('먼저 결과를 생성해 주세요.', true);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(output.innerText.trim());
+        setStatus('결과 내용을 클립보드에 복사했습니다.');
+      } catch (err) {
+        setStatus('복사에 실패했습니다. 결과 영역을 직접 선택해 복사해 주세요.', true);
+      }
+    }
+
+    function resetForm() {
+      if (!confirm('입력 내용을 초기화하시겠습니까?')) return;
+      $('counselDate').value = todayISO();
+      $('pharmacist').value = '방보령';
+      $('target').value = '신경과 병동 뇌경색환자 퇴원 전 복약상담 대상자';
+      $('globalNotes').value = '임의로 약을 중단하지 말고, 출혈이 의심되는 증상이 있거나 시술·수술·치과치료 예정이 있으면 의료진에게 복용 중인 약을 알려 주세요.';
+      $('customBleeding').value = '멍이 쉽게 들거나 커지는 경우, 코피나 잇몸 출혈이 멈추지 않는 경우, 소변이 붉게 보이는 경우, 검은색 변이나 피가 섞인 변, 피를 토하거나 기침할 때 피가 나오는 경우, 심한 두통·어지러움·외상 후 증상이 있는 경우';
+      drugs.forEach((drug) => {
+        $(`check-${drug.id}`).checked = false;
+        $(`card-${drug.id}`).classList.remove('active');
+        $(`dose-${drug.id}`).value = drug.defaultDose || '';
+        $(`note-${drug.id}`).value = drug.defaultNote || '';
+        $(`image-${drug.id}`).value = '';
+        $(`imageUrl-${drug.id}`).value = '';
+        delete imageData[drug.id];
+        if (drug.id === 'other') {
+          $(`customName-${drug.id}`).value = '';
+          $(`customCategory-${drug.id}`).value = '';
+          $(`customSimple-${drug.id}`).value = '';
+        }
+      });
+      $('output').innerHTML = `
+        <div class="empty-state">
+          <h2>아직 생성된 안내문이 없습니다.</h2>
+          <p>왼쪽에서 실제 복용 약을 선택하고 복용 방법을 입력한 뒤 <strong>결과 생성</strong>을 누르십시오.</p>
+        </div>`;
+      setStatus('초기화했습니다.');
+    }
+
+    function setStatus(message, isError = false) {
+      const status = $('status');
+      status.textContent = message;
+      status.classList.toggle('error', isError);
+    }
+
+    function init() {
+      renderDrugList();
+      $('counselDate').value = todayISO();
+      $('generateBtn').addEventListener('click', generate);
+      $('copyBtn').addEventListener('click', copyResult);
+      $('printBtn').addEventListener('click', () => window.print());
+      $('resetBtn').addEventListener('click', resetForm);
+    }
+
+    init();
+  </script>
+</body>
+</html>
